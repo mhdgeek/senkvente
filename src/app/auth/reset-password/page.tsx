@@ -1,0 +1,104 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { Eye, EyeOff, Loader2, CheckCircle2, Lock } from 'lucide-react'
+
+export default function ResetPasswordPage() {
+  const router  = useRouter()
+  const [password, setPassword]   = useState('')
+  const [confirm, setConfirm]     = useState('')
+  const [showPw, setShowPw]       = useState(false)
+  const [loading, setLoading]     = useState(false)
+  const [done, setDone]           = useState(false)
+  const [error, setError]         = useState<string | null>(null)
+  const [ready, setReady]         = useState(false)
+
+  useEffect(() => {
+    // Supabase injects the session from the URL hash after redirect
+    const supabase = createClient()
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setReady(true)
+    })
+    // Fallback: if already authenticated via hash
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true)
+    })
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (password !== confirm) { setError("Les mots de passe ne correspondent pas."); return }
+    if (password.length < 8)  { setError("Le mot de passe doit faire au moins 8 caractères."); return }
+
+    setLoading(true)
+    setError(null)
+    const supabase = createClient()
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) {
+      setError("Erreur lors de la réinitialisation. Le lien a peut-être expiré.")
+      setLoading(false)
+      return
+    }
+    setDone(true)
+    setTimeout(() => router.push('/dashboard'), 2000)
+  }
+
+  const inputCls = "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all text-sm font-body"
+
+  if (done) {
+    return (
+      <div className="text-center">
+        <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
+          <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+        </div>
+        <h1 className="font-display text-2xl font-bold text-white mb-2">Mot de passe mis à jour !</h1>
+        <p className="text-dark-400 text-sm font-body">Redirection vers votre espace...</p>
+      </div>
+    )
+  }
+
+  if (!ready) {
+    return (
+      <div className="text-center py-12">
+        <Loader2 className="w-8 h-8 text-brand-400 animate-spin mx-auto mb-3" />
+        <p className="text-dark-400 text-sm font-body">Vérification du lien...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="mb-8">
+        <div className="w-12 h-12 bg-brand-500/10 rounded-xl flex items-center justify-center mb-4">
+          <Lock className="w-6 h-6 text-brand-400" />
+        </div>
+        <h1 className="font-display text-3xl font-bold text-white mb-2">Nouveau mot de passe</h1>
+        <p className="text-dark-400 font-body text-sm">Choisissez un mot de passe sécurisé d&apos;au moins 8 caractères.</p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-body">{error}</div>
+        )}
+        <div>
+          <label className="block text-sm font-medium text-dark-300 mb-1.5 font-body">Nouveau mot de passe</label>
+          <div className="relative">
+            <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={8} placeholder="Minimum 8 caractères" className={`${inputCls} pr-12`} />
+            <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-500 hover:text-dark-300">
+              {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-dark-300 mb-1.5 font-body">Confirmer le mot de passe</label>
+          <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required placeholder="••••••••" className={inputCls} />
+        </div>
+        <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 py-3.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-white font-semibold rounded-xl transition-all text-sm font-body mt-2">
+          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Mise à jour...</> : 'Mettre à jour le mot de passe'}
+        </button>
+      </form>
+    </div>
+  )
+}
