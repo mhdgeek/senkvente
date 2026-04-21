@@ -7,7 +7,7 @@ import type { Profile } from '@/types'
 import { cn, getInitials } from '@/lib/utils'
 import {
   LayoutDashboard, Users, PlusCircle, History, UserCircle,
-  TrendingUp, LogOut, Menu, X, ShieldCheck
+  TrendingUp, LogOut, Menu, X, ShieldCheck, HelpCircle, UsersRound
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -16,7 +16,12 @@ const navItems = [
   { href: '/clients',   icon: Users,           label: 'Clients' },
   { href: '/sales/new', icon: PlusCircle,      label: 'Nouvelle vente', highlight: true },
   { href: '/sales',     icon: History,         label: 'Historique' },
-  { href: '/profile',   icon: UserCircle,      label: 'Mon profil' },
+]
+
+const bottomItems = [
+  { href: '/team',    icon: UsersRound,  label: 'Mon équipe' },
+  { href: '/faq',     icon: HelpCircle,  label: 'Aide & Suggestions' },
+  { href: '/profile', icon: UserCircle,  label: 'Mon profil' },
 ]
 
 interface Props { profile: Profile | null; userRole?: string }
@@ -32,6 +37,31 @@ export default function Sidebar({ profile, userRole }: Props) {
     router.push('/auth/login')
   }
 
+  const NavLink = ({ href, icon: Icon, label, highlight }: { href: string; icon: any; label: string; highlight?: boolean }) => {
+    const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+    if (highlight) {
+      return (
+        <Link href={href} onClick={() => setOpen(false)} prefetch={true}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold font-body my-1 bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-sm shadow-brand-200 hover:shadow-md hover:from-brand-700 hover:to-brand-600 transition-all duration-150">
+          <Icon className="w-4 h-4 shrink-0" />
+          {label}
+          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />
+        </Link>
+      )
+    }
+    return (
+      <Link href={href} onClick={() => setOpen(false)} prefetch={true}
+        className={cn(
+          'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 font-body',
+          isActive ? 'bg-brand-50 text-brand-700' : 'text-dark-600 hover:bg-dark-100 hover:text-dark-900'
+        )}>
+        <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-brand-600' : 'text-dark-400')} />
+        {label}
+        {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-brand-500" />}
+      </Link>
+    )
+  }
+
   const NavContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
@@ -44,65 +74,29 @@ export default function Sidebar({ profile, userRole }: Props) {
         </Link>
       </div>
 
-      {/* Nav items */}
+      {/* Main nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ href, icon: Icon, label, highlight }) => {
-          const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
-          if (highlight) {
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                prefetch={true}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold font-body my-1 bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-sm shadow-brand-200 hover:shadow-md hover:from-brand-700 hover:to-brand-600 transition-all duration-150"
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                {label}
-                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />
-              </Link>
-            )
-          }
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setOpen(false)}
-              prefetch={true}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 font-body',
-                isActive
-                  ? 'bg-brand-50 text-brand-700'
-                  : 'text-dark-600 hover:bg-dark-100 hover:text-dark-900'
-              )}
-            >
-              <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-brand-600' : 'text-dark-400')} />
-              {label}
-              {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-brand-500" />}
-            </Link>
-          )
-        })}
+        {navItems.map(item => <NavLink key={item.href} {...item} />)}
 
+        {/* Admin */}
         {userRole === 'admin' && (
           <>
             <div className="mx-3 my-2 border-t border-dark-100" />
-            <Link
-              href="/admin"
-              onClick={() => setOpen(false)}
-              prefetch={true}
+            <Link href="/admin" onClick={() => setOpen(false)} prefetch={true}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 font-body',
-                pathname.startsWith('/admin')
-                  ? 'bg-purple-50 text-purple-700'
-                  : 'text-dark-600 hover:bg-dark-100 hover:text-dark-900'
-              )}
-            >
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all font-body',
+                pathname.startsWith('/admin') ? 'bg-purple-50 text-purple-700' : 'text-dark-600 hover:bg-dark-100 hover:text-dark-900'
+              )}>
               <ShieldCheck className={cn('w-4 h-4 shrink-0', pathname.startsWith('/admin') ? 'text-purple-600' : 'text-dark-400')} />
               Administration
               {pathname.startsWith('/admin') && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-purple-500" />}
             </Link>
           </>
         )}
+
+        {/* Bottom nav items */}
+        <div className="mx-3 my-2 border-t border-dark-100" />
+        {bottomItems.map(item => <NavLink key={item.href} {...item} />)}
       </nav>
 
       {/* Footer */}
@@ -116,10 +110,8 @@ export default function Sidebar({ profile, userRole }: Props) {
             <p className="text-xs text-dark-400 truncate font-body">{profile?.full_name || ''}</p>
           </div>
         </div>
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-dark-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all font-body"
-        >
+        <button onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-dark-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all font-body">
           <LogOut className="w-4 h-4" />
           Déconnexion
         </button>
@@ -129,21 +121,16 @@ export default function Sidebar({ profile, userRole }: Props) {
 
   return (
     <>
-      {/* Desktop */}
       <aside className="hidden lg:flex w-64 shrink-0 bg-white border-r border-dark-100 flex-col">
         <NavContent />
       </aside>
 
-      {/* Mobile toggle button */}
       <button
         className="lg:hidden fixed top-3 left-3 z-50 w-9 h-9 bg-white border border-dark-200 rounded-xl flex items-center justify-center shadow-sm"
-        onClick={() => setOpen(!open)}
-        aria-label="Menu"
-      >
+        onClick={() => setOpen(!open)} aria-label="Menu">
         {open ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
       </button>
 
-      {/* Mobile drawer */}
       {open && (
         <>
           <div className="lg:hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-sm" onClick={() => setOpen(false)} />
