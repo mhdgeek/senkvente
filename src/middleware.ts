@@ -37,18 +37,22 @@ export async function middleware(request: NextRequest) {
   const isAdminPage  = pathname.startsWith('/admin')
   const isResetPage  = pathname === '/auth/reset-password'
 
+  // Not logged in → login
   if (!session && !isAuthPage && !isPublicPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
+  // Logged in → skip auth pages (except reset)
   if (session && isAuthPage && !isResetPage) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    // Admin → admin dashboard, user → user dashboard
+    url.pathname = isAdmin(session) ? '/admin' : '/dashboard'
     return NextResponse.redirect(url)
   }
 
+  // Admin pages → must be admin
   if (isAdminPage && session && !isAdmin(session)) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
