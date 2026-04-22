@@ -32,22 +32,22 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession()
   const { pathname } = request.nextUrl
 
-  const isAuthPage   = pathname.startsWith('/auth')
-  const isPublicPage = pathname === '/'
-  const isAdminPage  = pathname.startsWith('/admin')
-  const isResetPage  = pathname === '/auth/reset-password'
+  const isAuthPage       = pathname.startsWith('/auth')
+  const isPublicPage     = pathname === '/'
+  const isAdminPage      = pathname.startsWith('/admin')
+  const isResetPage      = pathname === '/auth/reset-password'
+  const isAcceptInvite   = pathname === '/auth/accept-invitation'
 
-  // Not logged in → login
+  // Not logged in → login (except public/auth pages)
   if (!session && !isAuthPage && !isPublicPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
-  // Logged in → skip auth pages (except reset)
-  if (session && isAuthPage && !isResetPage) {
+  // Logged in → skip auth pages (except reset and accept-invitation)
+  if (session && isAuthPage && !isResetPage && !isAcceptInvite) {
     const url = request.nextUrl.clone()
-    // Admin → admin dashboard, user → user dashboard
     url.pathname = isAdmin(session) ? '/admin' : '/dashboard'
     return NextResponse.redirect(url)
   }

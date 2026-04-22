@@ -2,23 +2,21 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
 
 export default function SignupPage() {
-  const router = useRouter()
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo   = searchParams.get('redirect') || '/dashboard'
+
   const [formData, setFormData] = useState({
-    full_name: '',
-    business_name: '',
-    email: '',
-    password: '',
-    phone: '',
-    city: 'Dakar',
+    full_name: '', business_name: '', email: '', password: '', phone: '', city: 'Dakar',
   })
   const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState<string | null>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -50,19 +48,14 @@ export default function SignupPage() {
     }
 
     if (data.user) {
-      // Update profile with additional info
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          phone: formData.phone,
-          city: formData.city,
-        })
-        .eq('id', data.user.id)
-
-      if (profileError) console.error(profileError)
+      await supabase.from('profiles').update({
+        phone: formData.phone,
+        city: formData.city,
+      }).eq('id', data.user.id)
     }
 
-    router.push('/dashboard')
+    // Redirect to original destination (invitation, etc.) or dashboard
+    router.push(redirectTo)
     router.refresh()
   }
 
@@ -85,106 +78,68 @@ export default function SignupPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-dark-300 mb-1.5 font-body">Nom complet *</label>
-            <input
-              name="full_name"
-              type="text"
-              value={formData.full_name}
-              onChange={handleChange}
-              required
+            <input name="full_name" type="text" value={formData.full_name} onChange={handleChange} required
               placeholder="Amadou Diallo"
-              className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all text-sm font-body"
-            />
+              className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all text-sm font-body" />
           </div>
           <div>
             <label className="block text-sm font-medium text-dark-300 mb-1.5 font-body">Téléphone</label>
-            <input
-              name="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={handleChange}
+            <input name="phone" type="tel" value={formData.phone} onChange={handleChange}
               placeholder="+221 77 000 0000"
-              className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all text-sm font-body"
-            />
+              className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all text-sm font-body" />
           </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-dark-300 mb-1.5 font-body">Nom de votre business *</label>
-          <input
-            name="business_name"
-            type="text"
-            value={formData.business_name}
-            onChange={handleChange}
-            required
+          <input name="business_name" type="text" value={formData.business_name} onChange={handleChange} required
             placeholder="Tech Services Diallo"
-            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all text-sm font-body"
-          />
+            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all text-sm font-body" />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-dark-300 mb-1.5 font-body">Ville</label>
-          <select
-            name="city"
-            value={formData.city}
-            onChange={handleChange}
-            className="w-full px-4 py-2.5 bg-dark-800 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all text-sm font-body"
-          >
+          <select name="city" value={formData.city} onChange={handleChange}
+            className="w-full px-4 py-2.5 bg-dark-800 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all text-sm font-body">
             {cities.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-dark-300 mb-1.5 font-body">Email *</label>
-          <input
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
+          <input name="email" type="email" value={formData.email} onChange={handleChange} required
             placeholder="vous@exemple.com"
-            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all text-sm font-body"
-          />
+            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all text-sm font-body" />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-dark-300 mb-1.5 font-body">Mot de passe *</label>
           <div className="relative">
-            <input
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              value={formData.password}
-              onChange={handleChange}
-              required
-              minLength={8}
-              placeholder="Minimum 8 caractères"
-              className="w-full px-4 py-2.5 pr-12 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all text-sm font-body"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-500 hover:text-dark-300 transition-colors"
-            >
+            <input name="password" type={showPassword ? 'text' : 'password'} value={formData.password}
+              onChange={handleChange} required minLength={8} placeholder="Minimum 8 caractères"
+              className="w-full px-4 py-2.5 pr-12 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all text-sm font-body" />
+            <button type="button" onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-500 hover:text-dark-300 transition-colors">
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all shadow-lg shadow-brand-900/30 text-sm font-body mt-2"
-        >
-          {loading ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Création du compte...</>
-          ) : (
-            <>Créer mon compte <ArrowRight className="w-4 h-4" /></>
-          )}
+        <button type="submit" disabled={loading}
+          className="w-full flex items-center justify-center gap-2 py-3.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-white font-semibold rounded-xl transition-all shadow-lg shadow-brand-900/30 text-sm font-body mt-2">
+          {loading
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> Création du compte...</>
+            : <>Créer mon compte <ArrowRight className="w-4 h-4" /></>
+          }
         </button>
       </form>
 
       <p className="mt-6 text-center text-dark-500 text-sm font-body">
         Déjà un compte ?{' '}
-        <Link href="/auth/login" className="text-brand-400 hover:text-brand-300 font-medium transition-colors">
+        <Link
+          href={`/auth/login${redirectTo !== '/dashboard' ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`}
+          className="text-brand-400 hover:text-brand-300 font-medium transition-colors"
+        >
           Se connecter
         </Link>
       </p>

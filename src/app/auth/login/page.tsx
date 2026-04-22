@@ -2,17 +2,20 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail]           = useState('')
-  const [password, setPassword]     = useState('')
-  const [showPassword, setShow]     = useState(false)
-  const [loading, setLoading]       = useState(false)
-  const [error, setError]           = useState<string | null>(null)
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo   = searchParams.get('redirect') || '/dashboard'
+
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [showPw, setShowPw]     = useState(false)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState<string | null>(null)
 
   const inputCls = "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all text-sm font-body"
 
@@ -27,7 +30,8 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
-    router.push('/dashboard')
+    // Redirect to original destination (invitation, etc.) or dashboard
+    router.push(redirectTo)
     router.refresh()
   }
 
@@ -47,7 +51,8 @@ export default function LoginPage() {
 
         <div>
           <label className="block text-sm font-medium text-dark-300 mb-1.5 font-body">Adresse email</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="vous@exemple.com" className={inputCls} />
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+            placeholder="vous@exemple.com" className={inputCls} />
         </div>
 
         <div>
@@ -58,32 +63,33 @@ export default function LoginPage() {
             </Link>
           </div>
           <div className="relative">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              placeholder="••••••••"
-              className={`${inputCls} pr-12`}
-            />
-            <button type="button" onClick={() => setShow(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-500 hover:text-dark-300 transition-colors">
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            <input type={showPw ? 'text' : 'password'} value={password}
+              onChange={e => setPassword(e.target.value)} required placeholder="••••••••"
+              className={`${inputCls} pr-12`} />
+            <button type="button" onClick={() => setShowPw(!showPw)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-500 hover:text-dark-300 transition-colors">
+              {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all shadow-lg shadow-brand-900/30 text-sm font-body"
-        >
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Connexion...</> : <>Se connecter <ArrowRight className="w-4 h-4" /></>}
+        <button type="submit" disabled={loading}
+          className="w-full flex items-center justify-center gap-2 py-3.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-white font-semibold rounded-xl transition-all shadow-lg shadow-brand-900/30 text-sm font-body">
+          {loading
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> Connexion...</>
+            : <>Se connecter <ArrowRight className="w-4 h-4" /></>
+          }
         </button>
       </form>
 
       <p className="mt-6 text-center text-dark-500 text-sm font-body">
         Pas encore de compte ?{' '}
-        <Link href="/auth/signup" className="text-brand-400 hover:text-brand-300 font-medium transition-colors">Créer un compte</Link>
+        <Link
+          href={`/auth/signup${redirectTo !== '/dashboard' ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`}
+          className="text-brand-400 hover:text-brand-300 font-medium transition-colors"
+        >
+          Créer un compte
+        </Link>
       </p>
     </div>
   )
