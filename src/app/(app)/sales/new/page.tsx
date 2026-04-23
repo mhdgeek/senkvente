@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
@@ -44,7 +44,7 @@ const TYPE_CONFIG = [
 
 const CITIES = ['Dakar', 'Thiès', 'Saint-Louis', 'Ziguinchor', 'Kaolack', 'Touba', 'Mbour', 'Rufisque', 'Diourbel', 'Tambacounda', 'Autre']
 
-export default function NewSalePage() {
+function NewSaleContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedClientId = searchParams.get('client_id')
@@ -531,5 +531,17 @@ export default function NewSalePage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function NewSalePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-brand-500" />
+      </div>
+    }>
+      <NewSaleContent />
+    </Suspense>
   )
 }

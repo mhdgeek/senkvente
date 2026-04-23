@@ -1,21 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginContent() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const redirectTo   = searchParams.get('redirect') || '/dashboard'
 
-  const [email, setEmail]       = useState('')
+  const [email, setEmail]     = useState('')
   const [password, setPassword] = useState('')
-  const [showPw, setShowPw]     = useState(false)
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState<string | null>(null)
+  const [showPw, setShowPw]   = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState<string | null>(null)
 
   const inputCls = "w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/40 transition-all text-sm font-body"
 
@@ -25,12 +25,7 @@ export default function LoginPage() {
     setError(null)
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setError('Email ou mot de passe incorrect.')
-      setLoading(false)
-      return
-    }
-    // Redirect to original destination (invitation, etc.) or dashboard
+    if (error) { setError('Email ou mot de passe incorrect.'); setLoading(false); return }
     router.push(redirectTo)
     router.refresh()
   }
@@ -41,56 +36,42 @@ export default function LoginPage() {
         <h1 className="font-display text-3xl font-bold text-white mb-2">Bon retour 👋</h1>
         <p className="text-dark-400 font-body">Connectez-vous à votre espace</p>
       </div>
-
       <form onSubmit={handleLogin} className="space-y-5">
-        {error && (
-          <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-body">
-            {error}
-          </div>
-        )}
-
+        {error && <div className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-body">{error}</div>}
         <div>
           <label className="block text-sm font-medium text-dark-300 mb-1.5 font-body">Adresse email</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-            placeholder="vous@exemple.com" className={inputCls} />
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="vous@exemple.com" className={inputCls} />
         </div>
-
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="block text-sm font-medium text-dark-300 font-body">Mot de passe</label>
-            <Link href="/auth/forgot-password" className="text-xs text-brand-400 hover:text-brand-300 transition-colors font-body">
-              Mot de passe oublié ?
-            </Link>
+            <Link href="/auth/forgot-password" className="text-xs text-brand-400 hover:text-brand-300 transition-colors font-body">Mot de passe oublié ?</Link>
           </div>
           <div className="relative">
-            <input type={showPw ? 'text' : 'password'} value={password}
-              onChange={e => setPassword(e.target.value)} required placeholder="••••••••"
-              className={`${inputCls} pr-12`} />
-            <button type="button" onClick={() => setShowPw(!showPw)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-500 hover:text-dark-300 transition-colors">
+            <input type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" className={`${inputCls} pr-12`} />
+            <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-dark-500 hover:text-dark-300 transition-colors">
               {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
         </div>
-
-        <button type="submit" disabled={loading}
-          className="w-full flex items-center justify-center gap-2 py-3.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-white font-semibold rounded-xl transition-all shadow-lg shadow-brand-900/30 text-sm font-body">
-          {loading
-            ? <><Loader2 className="w-4 h-4 animate-spin" /> Connexion...</>
-            : <>Se connecter <ArrowRight className="w-4 h-4" /></>
-          }
+        <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 py-3.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-white font-semibold rounded-xl transition-all shadow-lg shadow-brand-900/30 text-sm font-body">
+          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Connexion...</> : <>Se connecter <ArrowRight className="w-4 h-4" /></>}
         </button>
       </form>
-
       <p className="mt-6 text-center text-dark-500 text-sm font-body">
         Pas encore de compte ?{' '}
-        <Link
-          href={`/auth/signup${redirectTo !== '/dashboard' ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`}
-          className="text-brand-400 hover:text-brand-300 font-medium transition-colors"
-        >
+        <Link href={`/auth/signup${redirectTo !== '/dashboard' ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`} className="text-brand-400 hover:text-brand-300 font-medium transition-colors">
           Créer un compte
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="py-10 text-center"><Loader2 className="w-6 h-6 text-brand-400 animate-spin mx-auto" /></div>}>
+      <LoginContent />
+    </Suspense>
   )
 }
