@@ -21,7 +21,7 @@ function AcceptInvitationContent() {
   useEffect(() => {
     if (!token) {
       setStatus('error')
-      setError('Aucun token dans le lien. Veuillez utiliser le lien complet recu par email.')
+      setError('Aucun token dans le lien.')
       return
     }
     run()
@@ -37,29 +37,41 @@ function AcceptInvitationContent() {
   const accept = async (supabase: any, userId: string) => {
     setStatus('accepting')
 
+    // Query 1 — fetch invitation only (no JOIN, avoids foreign key issue)
     const { data: inv, error: invErr } = await supabase
       .from('team_invitations')
-      .select('id, owner_id, email, status, expires_at, owner:profiles!team_invitations_owner_id_fkey(full_name, business_name)')
+      .select('id, owner_id, email, status, expires_at')
       .eq('token', token)
       .maybeSingle()
 
-    console.log('Invitation lookup:', { inv, invErr, token })
-
     if (invErr) {
       setStatus('error')
-      setError('Erreur de lecture : ' + invErr.message)
+      setError('Erreur lecture invitation : ' + invErr.message)
       return
     }
 
     if (!inv) {
       setStatus('error')
-      setError('Invitation introuvable. Le lien est peut-etre incomplet ou invalide.')
+      setError('Invitation introuvable. Utilisez le lien complet de votre email.')
       return
     }
 
+    // Query 2 — fetch owner profile separately
+    const { data: owner } = await supabase
+      .from('profiles')
+      .select('full_name, business_name')
+      .eq('id', inv.owner_id)
+      .single()
+
+    const resolvedOwnerName = owner?.full_name || 'votre collaborateur'
+    const resolvedBusinessName = owner?.business_name || 'le business'
+
+    console.log('Invitation:', { status: inv.status, owner: resolvedOwnerName })
+
+    // Already accepted — redirect directly
     if (inv.status === 'accepted') {
-      setOwnerName(inv.owner?.full_name || 'votre collaborateur')
-      setBusinessName(inv.owner?.business_name || 'le business')
+      setOwnerName(resolvedOwnerName)
+      setBusinessName(resolvedBusinessName)
       setStatus('done')
       setTimeout(() => router.push('/dashboard'), 2000)
       return
@@ -67,7 +79,7 @@ function AcceptInvitationContent() {
 
     if (inv.status !== 'pending') {
       setStatus('error')
-      setError('Cette invitation est "' + inv.status + '" et ne peut plus etre utilisee.')
+      setError('Cette invitation a le statut "' + inv.status + '" et ne peut plus etre utilisee.')
       return
     }
 
@@ -83,9 +95,10 @@ function AcceptInvitationContent() {
       return
     }
 
-    setOwnerName(inv.owner?.full_name || 'votre collaborateur')
-    setBusinessName(inv.owner?.business_name || 'le business')
+    setOwnerName(resolvedOwnerName)
+    setBusinessName(resolvedBusinessName)
 
+    // Add to team
     const { error: teamErr } = await supabase
       .from('business_teams')
       .upsert(
@@ -95,10 +108,11 @@ function AcceptInvitationContent() {
 
     if (teamErr) {
       setStatus('error')
-      setError("Erreur lors de l'ajout : " + teamErr.message)
+      setError("Erreur ajout equipe : " + teamErr.message)
       return
     }
 
+    // Mark as accepted
     await supabase
       .from('team_invitations')
       .update({ status: 'accepted' })
@@ -108,6 +122,7 @@ function AcceptInvitationContent() {
     setTimeout(() => router.push('/dashboard'), 3000)
   }
 
+  // ── Loading ──
   if (status === 'loading' || status === 'accepting') {
     return (
       <div className="text-center py-10">
@@ -119,6 +134,7 @@ function AcceptInvitationContent() {
     )
   }
 
+  // ── Success ──
   if (status === 'done') {
     return (
       <div className="text-center">
@@ -141,6 +157,7 @@ function AcceptInvitationContent() {
     )
   }
 
+  // ── Error ──
   if (status === 'error') {
     return (
       <div className="text-center">
@@ -161,6 +178,7 @@ function AcceptInvitationContent() {
     )
   }
 
+  // ── Needs login ──
   const currentUrl = '/auth/accept-invitation?token=' + token
 
   return (
@@ -193,7 +211,7 @@ function AcceptInvitationContent() {
         </Link>
       </div>
       <p className="mt-5 text-center text-dark-600 text-xs font-body">
-        Apres connexion, vous serez automatiquement redirige pour accepter l&apos;invitation.
+        Apres connexion, vous serez redirige pour accepter l&apos;invitation.
       </p>
     </div>
   )
