@@ -9,30 +9,51 @@ export default async function TeamPage() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) redirect('/auth/login')
 
-  // Load team members + pending invitations
-  const [{ data: members }, { data: invitations }, { data: profile }] = await Promise.all([
-    supabase
-      .from('business_teams')
-      .select('*, member_profile:profiles!business_teams_member_id_fkey(full_name, email, business_name)')
-      .eq('owner_id', session.user.id),
-    supabase
-      .from('team_invitations')
-      .select('*')
-      .eq('owner_id', session.user.id)
-      .eq('status', 'pending'),
-    supabase
+  const ownerId = session.user.id
+
+  // Query 1: team members (no JOIN)
+  const { data: members } = await supabase
+    .from('business_teams')
+    .select('id, owner_id, member_id, role, created_at')
+    .eq('owner_id', ownerId)
+
+  // Query 2: fetch member profiles separately
+  const memberIds = (members || []).map(m => m.member_id)
+  let memberProfiles: any[] = []
+  if (memberIds.length > 0) {
+    const { data: profiles } = await supabase
       .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single(),
-  ])
+      .select('id, full_name, email, business_name')
+      .in('id', memberIds)
+    memberProfiles = profiles || []
+  }
+
+  // Attach profiles to members
+  const membersWithProfiles = (members || []).map(m => ({
+    ...m,
+    member_profile: memberProfiles.find(p => p.id === m.member_id) || null,
+  }))
+
+  // Query 3: pending invitations
+  const { data: invitations } = await supabase
+    .from('team_invitations')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .eq('status', 'pending')
+
+  // Query 4: owner profile
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', ownerId)
+    .single()
 
   return (
     <TeamManager
-      members={members || []}
+      members={membersWithProfiles}
       invitations={invitations || []}
       profile={profile}
-      ownerId={session.user.id}
+      ownerId={ownerId}
       ownerEmail={session.user.email || ''}
     />
   )
