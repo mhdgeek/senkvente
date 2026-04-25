@@ -4,19 +4,32 @@ import SalesTable from '@/components/sales/SalesTable'
 import { PlusCircle } from 'lucide-react'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 export default async function SalesPage({
   searchParams,
 }: {
   searchParams: { type?: string; status?: string; search?: string }
 }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect('/auth/login')
+
+  const myId = session.user.id
+
+  // Resolve effective owner
+  const { data: teamMembership } = await supabase
+    .from('business_teams')
+    .select('owner_id')
+    .eq('member_id', myId)
+    .maybeSingle()
+
+  const effectiveOwnerId = teamMembership?.owner_id || myId
 
   let query = supabase
     .from('transactions')
     .select('*, client:clients(full_name, phone)')
-    .eq('user_id', user.id)
+    .eq('user_id', effectiveOwnerId)
     .order('transaction_date', { ascending: false })
 
   if (searchParams.type && searchParams.type !== 'all') {
@@ -46,7 +59,6 @@ export default async function SalesPage({
           Nouvelle
         </Link>
       </div>
-
       <SalesTable
         transactions={transactions || []}
         totalRevenue={total}

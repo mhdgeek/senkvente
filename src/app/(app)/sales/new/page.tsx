@@ -102,9 +102,16 @@ function NewSaleContent() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setClientLoading(false); return }
+    // Use effectiveOwnerId so client is created under the owner's account
+    const { data: teamData } = await supabase
+      .from('business_teams')
+      .select('owner_id')
+      .eq('member_id', user.id)
+      .maybeSingle()
+    const effectiveUserId = teamData?.owner_id || user.id
     const { data, error } = await supabase
       .from('clients')
-      .insert({ ...newClient, user_id: user.id })
+      .insert({ ...newClient, user_id: effectiveUserId })
       .select('*')
       .single()
     if (!error && data) {
@@ -149,8 +156,16 @@ function NewSaleContent() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth/login'); return }
 
+    // Resolve effective owner for team members
+    const { data: teamData } = await supabase
+      .from('business_teams')
+      .select('owner_id')
+      .eq('member_id', user.id)
+      .maybeSingle()
+    const effectiveUserId = teamData?.owner_id || user.id
+
     const payload: Record<string, any> = {
-      user_id: user.id,
+      user_id: effectiveUserId,
       client_id: form.client_id,
       type: form.type,
       amount,

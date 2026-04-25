@@ -1,21 +1,31 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { formatDate, formatCFA, getInitials } from '@/lib/utils'
+import { formatCFA, getInitials } from '@/lib/utils'
 import { UserPlus, Phone, Mail, ChevronRight } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 
 export default async function ClientsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) redirect('/auth/login')
+
+  const myId = session.user.id
+
+  // Resolve effective owner (team member sees owner's data)
+  const { data: teamMembership } = await supabase
+    .from('business_teams')
+    .select('owner_id')
+    .eq('member_id', myId)
+    .maybeSingle()
+
+  const effectiveOwnerId = teamMembership?.owner_id || myId
 
   const { data: clients } = await supabase
     .from('clients')
-    .select(`
-      *,
-      transactions(amount, status, type)
-    `)
-    .eq('user_id', user.id)
+    .select('*, transactions(amount, status, type)')
+    .eq('user_id', effectiveOwnerId)
     .order('created_at', { ascending: false })
 
   const clientsWithStats = (clients || []).map(c => {
@@ -48,18 +58,13 @@ export default async function ClientsPage() {
           </div>
           <h3 className="font-display font-semibold text-dark-800 text-lg mb-2">Aucun client</h3>
           <p className="text-dark-400 text-sm font-body mb-6">Commencez par ajouter votre premier client</p>
-          <Link href="/clients/new" className="btn-primary mx-auto">
-            Ajouter un client
-          </Link>
+          <Link href="/clients/new" className="btn-primary mx-auto">Ajouter un client</Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {clientsWithStats.map((client) => (
-            <Link
-              key={client.id}
-              href={`/clients/${client.id}`}
-              className="card p-5 hover:shadow-md transition-all duration-200 group"
-            >
+            <Link key={client.id} href={`/clients/${client.id}`}
+              className="card p-5 hover:shadow-md transition-all duration-200 group">
               <div className="flex items-start gap-4">
                 <div className="w-11 h-11 bg-brand-100 text-brand-700 rounded-xl flex items-center justify-center font-bold text-sm font-display shrink-0">
                   {getInitials(client.full_name)}
@@ -71,29 +76,23 @@ export default async function ClientsPage() {
                     </h3>
                     <ChevronRight className="w-4 h-4 text-dark-300 group-hover:text-brand-500 transition-colors shrink-0" />
                   </div>
-                  {client.city && (
-                    <p className="text-xs text-dark-400 font-body mt-0.5">{client.city}</p>
-                  )}
+                  {client.city && <p className="text-xs text-dark-400 font-body mt-0.5">{client.city}</p>}
                   <div className="mt-3 space-y-1">
                     {client.phone && (
                       <div className="flex items-center gap-2 text-xs text-dark-500 font-body">
-                        <Phone className="w-3 h-3" />
-                        {client.phone}
+                        <Phone className="w-3 h-3" />{client.phone}
                       </div>
                     )}
                     {client.email && (
                       <div className="flex items-center gap-2 text-xs text-dark-500 font-body">
-                        <Mail className="w-3 h-3" />
-                        {client.email}
+                        <Mail className="w-3 h-3" />{client.email}
                       </div>
                     )}
                   </div>
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-dark-100 flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-dark-400 font-body">{client.nbTransactions} transaction{client.nbTransactions > 1 ? 's' : ''}</p>
-                </div>
+                <p className="text-xs text-dark-400 font-body">{client.nbTransactions} transaction{client.nbTransactions > 1 ? 's' : ''}</p>
                 <div className="text-right">
                   <p className="text-sm font-bold text-dark-900 font-display">{formatCFA(client.totalRevenue)}</p>
                   <p className="text-xs text-dark-400 font-body">C.A. total</p>

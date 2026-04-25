@@ -14,17 +14,30 @@ export default async function DashboardPage() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) redirect('/auth/login')
 
+  const myId = session.user.id
+
+  // Check if I am a member of someone else's team
+  const { data: teamMembership } = await supabase
+    .from('business_teams')
+    .select('owner_id')
+    .eq('member_id', myId)
+    .maybeSingle()
+
+  // The effective owner: either myself, or the owner I belong to
+  const effectiveOwnerId = teamMembership?.owner_id || myId
+  const isTeamMember = !!teamMembership
+
   const [{ data: transactions }, { data: clients }] = await Promise.all([
     supabase
       .from('transactions')
       .select('*, client:clients(full_name, phone)')
-      .eq('user_id', session.user.id)
+      .eq('user_id', effectiveOwnerId)
       .order('transaction_date', { ascending: false })
       .limit(200),
     supabase
       .from('clients')
       .select('id')
-      .eq('user_id', session.user.id),
+      .eq('user_id', effectiveOwnerId),
   ])
 
   const txList = transactions || []
@@ -47,11 +60,15 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-up">
-      {/* Page header */}
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-dark-950 font-display">Dashboard</h1>
-          <p className="text-dark-400 text-xs sm:text-sm mt-0.5 font-body">Vue d&apos;ensemble de votre activité</p>
+          <p className="text-dark-400 text-xs sm:text-sm mt-0.5 font-body">
+            {isTeamMember
+              ? 'Vous consultez le dashboard partagé de votre équipe'
+              : "Vue d'ensemble de votre activité"
+            }
+          </p>
         </div>
         {isEmpty && (
           <div className="flex items-center gap-2">
@@ -67,7 +84,6 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {/* Empty state */}
       {isEmpty ? (
         <div className="card p-8 sm:p-12 text-center">
           <div className="w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -75,7 +91,7 @@ export default async function DashboardPage() {
           </div>
           <h2 className="font-display font-bold text-dark-900 text-lg mb-2">Commencez dès maintenant</h2>
           <p className="text-dark-400 text-sm font-body mb-6 max-w-sm mx-auto">
-            Ajoutez votre premier client et enregistrez votre première transaction pour voir vos statistiques ici.
+            Ajoutez votre premier client et enregistrez votre première transaction pour voir vos statistiques.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/clients/new" className="btn-secondary justify-center">
@@ -89,14 +105,12 @@ export default async function DashboardPage() {
       ) : (
         <>
           <StatsCards stats={stats} />
-
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             <div className="lg:col-span-2">
               <RevenueChart transactions={txList} />
             </div>
             <TypeBreakdown stats={stats} />
           </div>
-
           <RecentTransactions transactions={txList.slice(0, 8)} />
         </>
       )}
