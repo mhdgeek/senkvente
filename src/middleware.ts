@@ -32,27 +32,30 @@ export async function middleware(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession()
   const { pathname } = request.nextUrl
 
-  const isAuthPage       = pathname.startsWith('/auth')
-  const isPublicPage     = pathname === '/'
-  const isAdminPage      = pathname.startsWith('/admin')
-  const isResetPage      = pathname === '/auth/reset-password'
-  const isAcceptInvite   = pathname === '/auth/accept-invitation'
+  const isAuthPage     = pathname.startsWith('/auth')
+  const isPublicPage   = pathname === '/'
+  const isAdminPage    = pathname.startsWith('/admin')
+  // These auth pages must always be accessible regardless of session
+  const isOpenAuthPage = [
+    '/auth/reset-password',
+    '/auth/accept-invitation',
+    '/auth/callback',
+    '/auth/forgot-password',
+  ].includes(pathname)
 
-  // Not logged in → login (except public/auth pages)
   if (!session && !isAuthPage && !isPublicPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
-  // Logged in → skip auth pages (except reset and accept-invitation)
-  if (session && isAuthPage && !isResetPage && !isAcceptInvite) {
+  // Logged in → skip login/signup only (not open auth pages)
+  if (session && isAuthPage && !isOpenAuthPage) {
     const url = request.nextUrl.clone()
     url.pathname = isAdmin(session) ? '/admin' : '/dashboard'
     return NextResponse.redirect(url)
   }
 
-  // Admin pages → must be admin
   if (isAdminPage && session && !isAdmin(session)) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
