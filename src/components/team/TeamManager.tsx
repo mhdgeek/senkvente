@@ -41,10 +41,10 @@ export default function TeamManager({
   members, invitations, profile, ownerId, ownerEmail, isOwner, ownerProfile
 }: Props) {
   const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [email, setEmail]           = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [sent, setSent]             = useState(false)
+  const [error, setError]           = useState<string | null>(null)
   const [removingId, setRemovingId] = useState<string | null>(null)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
 
@@ -60,7 +60,7 @@ export default function TeamManager({
 
     const supabase = createClient()
 
-    // Check already member
+    // Vérifier si déjà membre
     const alreadyMember = members.find(
       m => m.member_profile?.email?.toLowerCase() === email.toLowerCase()
     )
@@ -70,20 +70,45 @@ export default function TeamManager({
       return
     }
 
-    const { error: invError } = await supabase
+    // Étape 1 — Créer l'invitation en base (génère le token)
+    const { data: inv, error: invError } = await supabase
       .from('team_invitations')
       .insert({ owner_id: ownerId, email: email.trim().toLowerCase() })
+      .select('token')
+      .single()
 
-    if (invError) {
-      setError("Erreur lors de l'invitation : " + invError.message)
+    if (invError || !inv) {
+      setError("Erreur lors de la création de l'invitation : " + (invError?.message || ''))
       setLoading(false)
       return
     }
 
+    // Étape 2 — Envoyer l'email via /api/invite (utilise Gmail SMTP)
+    const res = await fetch('/api/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email:        email.trim().toLowerCase(),
+        token:        inv.token,
+        ownerName:    profile?.full_name || 'Un collaborateur',
+        businessName: profile?.business_name || 'un business',
+      }),
+    })
+
+    const result = await res.json()
+
+    if (!res.ok) {
+      // L'invitation est créée mais l'email a échoué
+      setError("Invitation créée mais email non envoyé : " + (result.error || ''))
+      setLoading(false)
+      return
+    }
+
+    // Succès
     setSent(true)
     setEmail('')
     setLoading(false)
-    setTimeout(() => { setSent(false); router.refresh() }, 3000)
+    setTimeout(() => { setSent(false); router.refresh() }, 4000)
   }
 
   const handleRemoveMember = async (memberId: string) => {
@@ -103,7 +128,7 @@ export default function TeamManager({
     router.refresh()
   }
 
-  // ── Member view (not owner) ──
+  // ── Vue membre (pas propriétaire) ──
   if (!isOwner) {
     return (
       <div className="max-w-2xl mx-auto space-y-6 animate-fade-up">
@@ -129,10 +154,10 @@ export default function TeamManager({
           </div>
           <div className="bg-dark-50 rounded-xl p-4 space-y-2">
             {[
-              { l: 'Propriétaire', v: ownerProfile?.full_name || '—' },
-              { l: 'Business', v: ownerProfile?.business_name || '—' },
-              { l: 'Email', v: ownerProfile?.email || '—' },
-            ].map(r => (
+              { l: 'Propriétaire', v: ownerProfile?.full_name },
+              { l: 'Business',     v: ownerProfile?.business_name },
+              { l: 'Email',        v: ownerProfile?.email },
+            ].filter(r => r.v).map(r => (
               <div key={r.l} className="flex justify-between">
                 <span className="text-xs text-dark-400 font-body">{r.l}</span>
                 <span className="text-sm font-medium text-dark-800 font-body">{r.v}</span>
@@ -144,7 +169,6 @@ export default function TeamManager({
         <div className="card p-5">
           <h2 className="section-title mb-4">Membres de l&apos;équipe</h2>
           <div className="divide-y divide-dark-100">
-            {/* Show owner */}
             <div className="flex items-center gap-3 py-3">
               <div className="w-9 h-9 bg-brand-100 text-brand-700 rounded-xl flex items-center justify-center text-xs font-bold font-display">
                 {ownerProfile ? getInitials(ownerProfile.full_name) : 'P'}
@@ -157,7 +181,6 @@ export default function TeamManager({
                 <Crown className="w-3 h-3" /> Propriétaire
               </span>
             </div>
-            {/* Show all members */}
             {members.map(m => (
               <div key={m.id} className="flex items-center gap-3 py-3">
                 <div className="w-9 h-9 bg-blue-100 text-blue-700 rounded-xl flex items-center justify-center text-xs font-bold font-display">
@@ -176,7 +199,7 @@ export default function TeamManager({
     )
   }
 
-  // ── Owner view ──
+  // ── Vue propriétaire ──
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-up">
       <div>
@@ -197,16 +220,16 @@ export default function TeamManager({
           </li>
           <li className="flex items-start gap-2">
             <span className="text-brand-500 mt-0.5">✓</span>
-            Chaque ajout de client envoie une notification email à toute l&apos;équipe
+            Seul le propriétaire peut inviter ou retirer des membres
           </li>
           <li className="flex items-start gap-2">
             <span className="text-brand-500 mt-0.5">✓</span>
-            Seul le propriétaire peut inviter ou retirer des membres
+            L&apos;invité reçoit un email avec un lien pour rejoindre l&apos;équipe
           </li>
         </ul>
       </div>
 
-      {/* Invite form */}
+      {/* Formulaire invitation */}
       <div className="card p-5">
         <h2 className="section-title mb-4">Inviter un collaborateur</h2>
         <form onSubmit={handleInvite} className="space-y-3">
@@ -234,7 +257,10 @@ export default function TeamManager({
               />
             </div>
             <button type="submit" disabled={loading} className="btn-primary shrink-0">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><UserPlus className="w-4 h-4" /> Inviter</>}
+              {loading
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <><UserPlus className="w-4 h-4" /> Inviter</>
+              }
             </button>
           </div>
           <p className="text-xs text-dark-400 font-body">
@@ -243,13 +269,12 @@ export default function TeamManager({
         </form>
       </div>
 
-      {/* Members list */}
+      {/* Liste membres */}
       <div className="card overflow-hidden">
         <div className="px-5 py-4 border-b border-dark-100">
           <h2 className="section-title">Membres actuels</h2>
         </div>
         <div className="divide-y divide-dark-50">
-          {/* Owner row */}
           <div className="flex items-center gap-3 px-5 py-3.5">
             <div className="w-9 h-9 bg-brand-100 text-brand-700 rounded-xl flex items-center justify-center font-bold text-xs font-display shrink-0">
               {profile ? getInitials(profile.full_name) : 'V'}
@@ -297,7 +322,7 @@ export default function TeamManager({
         </div>
       </div>
 
-      {/* Pending invitations */}
+      {/* Invitations en attente */}
       {invitations.length > 0 && (
         <div className="card overflow-hidden">
           <div className="px-5 py-4 border-b border-dark-100">
