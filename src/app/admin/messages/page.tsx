@@ -14,10 +14,30 @@ export default async function AdminMessagesPage() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session || !isAdmin(session)) redirect('/auth/login')
 
-  const { data: suggestions } = await supabase
+  // Fetch suggestions WITHOUT join (avoids foreign key issues)
+  const { data: suggestions, error } = await supabase
     .from('faq_suggestions')
-    .select('*, user:profiles!faq_suggestions_user_id_fkey(full_name, email, business_name)')
+    .select('id, category, subject, message, status, admin_reply, created_at, user_id')
     .order('created_at', { ascending: false })
 
-  return <AdminMessagesPanel suggestions={suggestions || []} />
+  console.log('Suggestions fetch:', { count: suggestions?.length, error })
+
+  // Fetch user profiles separately
+  const userIds = [...new Set((suggestions || []).map(s => s.user_id).filter(Boolean))]
+  let userProfiles: any[] = []
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, business_name')
+      .in('id', userIds)
+    userProfiles = profiles || []
+  }
+
+  // Attach profiles to suggestions
+  const suggestionsWithUsers = (suggestions || []).map(s => ({
+    ...s,
+    user: userProfiles.find(p => p.id === s.user_id) || null,
+  }))
+
+  return <AdminMessagesPanel suggestions={suggestionsWithUsers} />
 }
