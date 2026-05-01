@@ -23,7 +23,7 @@ export default async function AdminMessagesPage() {
   console.log('Suggestions fetch:', { count: suggestions?.length, error })
 
   // Fetch user profiles separately
-  const userIds = [...new Set((suggestions || []).map(s => s.user_id).filter(Boolean))]
+  const userIds = Array.from(new Set((suggestions || []).map((s: any) => s.user_id).filter(Boolean)))
   let userProfiles: any[] = []
   if (userIds.length > 0) {
     const { data: profiles } = await supabase
